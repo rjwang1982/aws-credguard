@@ -135,6 +135,15 @@ aws-rm prod-a               # 删除（需确认）
 | IAM Identity Center（SSO） | ✓ | ✓（Passkey） | ✓ | 最佳，但需要每个账号都配置 |
 | **CredGuard** | ✓ | ✓ | ✓ | 只支持 macOS |
 
+## 作者
+
+**RJ Wang**
+
+- GitHub：[@rjwang1982](https://github.com/rjwang1982)
+- Email：renjun.wang@vstecs.com
+
+问题和建议欢迎提 [Issue](https://github.com/rjwang1982/aws-credguard/issues)。
+
 ## License
 
 MIT。本项目不是 AWS 官方工具，使用风险自负。

@@ -62,7 +62,7 @@ footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--page-line);fo
 <div class="wrap fade">
 
 <header>
-  <div class="meta">AWS CredGuard · v1.0 · 2026-11 · MIT License</div>
+  <div class="meta">AWS CredGuard · v1.0 · 2026-11 · 作者：RJ Wang · MIT License</div>
   <h1>AWS CredGuard：本机不存明文 AKSK，<br>每次启用凭证都要本人按指纹</h1>
   <p class="lead">一台 Mac 上管着几十个 AWS 账号的长期密钥，人和 AI 智能体（Kiro、Quick、MCP）共用。本方案把 AKSK 交给 Mac 的<b>安全芯片（Secure Enclave）</b>加密，解密必须按 <b>Touch ID</b>；交给工具的只有 <b>1 小时有效的 STS 临时凭证</b>；原来的 <code>--profile</code> 用法不变。</p>
   <div class="stats">
@@ -335,7 +335,7 @@ aws-test dev                  <span class="c"># 按指纹后返回 ARN</span></p
 └── scripts/audit_permissions.sh  <span class="c">权限盘点（只读）</span></pre>
 </section>
 
-<footer>AWS CredGuard v1.0 · MIT License · 仅在 Apple Silicon Mac（macOS + Touch ID）上测试。本项目不是 AWS 官方工具。</footer>
+<footer>AWS CredGuard v1.0 · 作者：RJ Wang · <a href="https://github.com/rjwang1982" style="color:inherit">github.com/rjwang1982</a> · <a href="mailto:renjun.wang@vstecs.com" style="color:inherit">renjun.wang@vstecs.com</a><br>MIT License · 仅在 Apple Silicon Mac（macOS + Touch ID）上测试 · 本项目不是 AWS 官方工具 · 源码：<a href="https://github.com/rjwang1982/aws-credguard" style="color:inherit">github.com/rjwang1982/aws-credguard</a></footer>
 </div>
 <script>document.querySelectorAll('.fade').forEach(function(e){e.classList.add('on')});</script>
 </body>
