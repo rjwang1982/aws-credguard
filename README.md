@@ -4,7 +4,7 @@
 
 在 macOS 上把 AWS 长期密钥（AKSK）交给 **Secure Enclave** 加密，每次启用都要按 **Touch ID**，交给工具的只有 **1 小时有效的 STS 临时凭证**。`--profile` 用法不变，AWS CLI、SDK、Terraform、MCP Server 和 AI 编码智能体（如 Kiro）都不用改。
 
-> 图文版（含架构图和时序图）：[`docs/AWS_CredGuard.html`](docs/AWS_CredGuard.html)
+> 图文版（含架构图和时序图）：https://rjwang1982.github.io/aws-credguard/ （源文件 [`docs/AWS_CredGuard.html`](docs/AWS_CredGuard.html)）
 
 ---
 
@@ -51,7 +51,7 @@ Secure Enclave 密钥的访问控制是 `privateKeyUsage + biometryCurrentSet`�
 
 ## 要求
 
-- macOS，Apple Silicon（T2 芯片的 Intel Mac 推测也可用，未测试）
+- macOS，Apple Silicon（T2 芯片的 Intel Mac 推测也可用，未测试）；`install.sh` 尚未在全新机器上完整验证，欢迎反馈
 - 已录入 Touch ID
 - Xcode Command Line Tools（`xcode-select --install`）
 - AWS CLI v2
