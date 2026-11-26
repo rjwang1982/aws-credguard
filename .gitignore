@@ -1,0 +1,13 @@
+# 密钥与凭证，永远不要提交
+*.enc
+vault/
+credentials*
+*.csv
+se-key.bin
+se-pub.bin
+cache/
+.touchid_ok
+# 编译产物
+aws-se
+se-test
+.DS_Store

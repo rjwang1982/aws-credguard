@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AWS CredGuard · 本地 AWS 凭证安全方案</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --page-ink:#12324A; --page-amber:#D98E1F; --page-amber-bg:#FBF1E1;
+  --page-text:#1D2329; --page-sub:#56606B; --page-mute:#8C959F;
+  --page-line:#DDE2E7; --page-bg:#F6F7F8; --page-card:#FFFFFF;
+  --page-sans:'IBM Plex Sans','PingFang SC','Hiragino Sans GB','Microsoft YaHei',system-ui,sans-serif;
+  --page-mono:'IBM Plex Mono','SF Mono',Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page-bg);color:var(--page-text);font-family:var(--page-sans);line-height:1.6;font-size:15px}
+.wrap{max-width:1080px;margin:0 auto;padding:40px 24px 80px}
+header{border-bottom:3px solid var(--page-ink);padding-bottom:28px;margin-bottom:40px}
+.meta{font-family:var(--page-mono);font-size:12px;color:var(--page-mute)}
+h1{font-size:clamp(28px,5vw,46px);line-height:1.15;margin:10px 0 14px;color:var(--page-ink);font-weight:700}
+.lead{font-size:clamp(15px,2vw,18px);color:var(--page-sub);max-width:760px;margin:0}
+.lead b{color:var(--page-text)}
+section{margin:56px 0}
+h2{font-size:22px;color:var(--page-ink);margin:0 0 6px}
+.h2sub{color:var(--page-sub);margin:0 0 20px;font-size:14px}
+.panel{background:var(--page-card);border:1px solid var(--page-line);border-radius:6px;padding:24px}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;font-weight:600;color:var(--page-sub);font-size:12px;padding:8px 12px;border-bottom:1px solid var(--page-ink)}
+td{padding:10px 12px;border-bottom:1px solid var(--page-line);vertical-align:top}
+td.num{text-align:right;font-family:var(--page-mono);font-variant-numeric:tabular-nums}
+.bad{color:#9A3B2E}.good{color:var(--page-ink);font-weight:600}
+code,.mono{font-family:var(--page-mono);font-size:13px}
+pre{background:var(--page-ink);color:#E9EEF2;font-family:var(--page-mono);font-size:13px;padding:16px 18px;border-radius:4px;overflow-x:auto;margin:0;line-height:1.55}
+pre .c{color:#8FA7B9}
+pre .a{color:#F3C27A}
+.stats{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:0;border-top:1px solid var(--page-line);border-bottom:1px solid var(--page-line);margin-top:28px}
+.stats>div{padding:16px 18px;border-left:1px solid var(--page-line);min-width:0}
+.stats>div:first-child{border-left:0;padding-left:0}
+.stats .v{font-family:var(--page-mono);font-size:clamp(26px,4vw,40px);font-weight:600;color:var(--page-ink);line-height:1.1}
+.stats .v.amber{color:var(--page-amber)}
+.stats .k{font-size:13px;color:var(--page-sub)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.two>*{min-width:0}
+.term{font-size:14px}
+.term dt{font-weight:600;color:var(--page-ink);margin-top:12px}
+.term dd{margin:2px 0 0;color:var(--page-sub)}
+.pick{background:var(--page-amber-bg);border-left:4px solid var(--page-amber);padding:14px 18px;margin-top:16px}
+.list{margin:0;padding-left:18px}.list li{margin:6px 0}
+.tag{display:inline-block;font-family:var(--page-mono);font-size:11px;padding:1px 7px;border:1px solid var(--page-line);border-radius:3px;color:var(--page-sub);white-space:nowrap}
+.tag.hi{border-color:var(--page-amber);color:#8A5A12;background:var(--page-amber-bg)}
+svg text{font-family:var(--page-sans)}
+svg .m{font-family:var(--page-mono)}
+footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--page-line);font-size:12px;color:var(--page-mute)}
+@media (max-width:760px){.two{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}.stats>div:nth-child(3){border-left:0;padding-left:0}}
+@media (prefers-reduced-motion:no-preference){.fade{opacity:0;transform:translateY(6px);transition:opacity .4s ease-out,transform .4s ease-out}.fade.on{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<div class="wrap fade">
+
+<header>
+  <div class="meta">AWS CredGuard · v1.0 · 2026-11 · MIT License</div>
+  <h1>AWS CredGuard：本机不存明文 AKSK，<br>每次启用凭证都要本人按指纹</h1>
+  <p class="lead">一台 Mac 上管着几十个 AWS 账号的长期密钥，人和 AI 智能体（Kiro、Quick、MCP）共用。本方案把 AKSK 交给 Mac 的<b>安全芯片（Secure Enclave）</b>加密，解密必须按 <b>Touch ID</b>；交给工具的只有 <b>1 小时有效的 STS 临时凭证</b>；原来的 <code>--profile</code> 用法不变。</p>
+  <div class="stats">
+    <div><div class="v">0</div><div class="k">本机明文 AKSK</div></div>
+    <div><div class="v">SE</div><div class="k">Secure Enclave 加密存储</div></div>
+    <div><div class="v amber">1 h</div><div class="k">临时凭证有效期</div></div>
+    <div><div class="v">0</div><div class="k">调用方需要改的代码</div></div>
+  </div>
+</header>
+
+<section>
+  <h2>默认做法下，读一个文件就能拿走全部账号</h2>
+  <p class="h2sub">AWS CLI 默认把长期 AKSK 明文写在 <code>~/.aws/credentials</code>；账号越多、智能体越多，暴露面越大。</p>
+  <div class="panel scroll">
+  <table>
+    <thead><tr><th>风险</th><th>改造前</th><th>改造后</th></tr></thead>
+    <tbody>
+      <tr><td>明文存储</td><td class="bad">credentials 里存着全部 AKSK</td><td class="good">没有明文，只有 Secure Enclave 加密的密文</td></tr>
+      <tr><td>恶意 npm/pip 包、浏览器插件</td><td class="bad">读一个文件就能拿走全部密钥</td><td class="good">只能拿到密文，私钥在芯片里导不出来</td></tr>
+      <tr><td>云盘同步、Time Machine</td><td class="bad">明文被同步和备份带走</td><td class="good">带走的是密文，离开本机芯片无法解密</td></tr>
+      <tr><td>智能体静默使用</td><td class="bad">随时可用，本人不知情</td><td class="good">每个 profile 每小时首次使用时弹 Touch ID</td></tr>
+      <tr><td>长期密钥外泄</td><td class="bad">工具直接拿到长期 AK</td><td class="good">工具只拿到 1 小时有效的临时凭证</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section>
+  <h2>架构：在 AWS CLI 和密钥之间加一道指纹关口</h2>
+  <p class="h2sub">琥珀色是凭证经过的路径。调用方只看到 config 里的 <code>credential_process</code>，不知道密钥存在哪里。</p>
+  <div class="panel scroll">
+  <svg viewBox="0 0 1000 560" width="100%" style="min-width:760px" role="img" aria-label="AWS CredGuard 架构图">
+    <defs>
+      <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="#D98E1F"/></marker>
+      <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="#8C959F"/></marker>
+    </defs>
+    <!-- callers -->
+    <text x="20" y="28" font-size="12" fill="#8C959F">调用方（用法不变）</text>
+    <g font-size="13" fill="#1D2329">
+      <rect x="20" y="40" width="150" height="40" rx="3" fill="#fff" stroke="#DDE2E7"/><text x="95" y="65" text-anchor="middle">Kiro</text>
+      <rect x="20" y="88" width="150" height="40" rx="3" fill="#fff" stroke="#DDE2E7"/><text x="95" y="113" text-anchor="middle">AWS Quick</text>
+      <rect x="20" y="136" width="150" height="40" rx="3" fill="#fff" stroke="#DDE2E7"/><text x="95" y="161" text-anchor="middle">MCP Server</text>
+      <rect x="20" y="184" width="150" height="40" rx="3" fill="#fff" stroke="#DDE2E7"/><text x="95" y="209" text-anchor="middle">aws CLI / Terraform / SDK</text>
+    </g>
+    <path d="M170 132 L250 132" stroke="#D98E1F" stroke-width="2" marker-end="url(#ah)"/>
+    <text x="210" y="122" font-size="11" fill="#56606B" text-anchor="middle" class="m">--profile prod-a</text>
+    <!-- config -->
+    <rect x="252" y="80" width="230" height="104" rx="3" fill="#fff" stroke="#12324A" stroke-width="1.5"/>
+    <text x="266" y="102" font-size="13" font-weight="600" fill="#12324A">~/.aws/config</text>
+    <text x="266" y="126" font-size="11.5" fill="#56606B" class="m">[profile prod-a]</text>
+    <text x="266" y="144" font-size="11.5" fill="#56606B" class="m">region = cn-northwest-1</text>
+    <text x="266" y="162" font-size="11.5" fill="#8A5A12" class="m">credential_process =</text>
+    <text x="266" y="177" font-size="11.5" fill="#8A5A12" class="m">  ~/.aws/bin/aws-cred prod-a</text>
+    <path d="M482 132 L560 132" stroke="#D98E1F" stroke-width="2" marker-end="url(#ah)"/>
+    <text x="521" y="122" font-size="11" fill="#56606B" text-anchor="middle">调用</text>
+    <!-- aws-cred -->
+    <rect x="562" y="40" width="418" height="250" rx="3" fill="#FBF1E1" stroke="#D98E1F" stroke-width="1.5"/>
+    <text x="578" y="64" font-size="14" font-weight="700" fill="#12324A">aws-cred</text>
+    <text x="650" y="64" font-size="12" fill="#56606B">credential_process 包装脚本</text>
+    <g font-size="12.5" fill="#1D2329">
+      <text x="578" y="94">① 缓存有效（剩余 &gt; 5 分钟）→ 直接返回临时凭证</text>
+      <text x="578" y="122">② 加锁：并发调用排队，只弹一次指纹</text>
+      <text x="578" y="150">③ 调 aws-se 解密 → <tspan font-weight="600" fill="#8A5A12">Touch ID</tspan></text>
+      <text x="578" y="178">④ 内存中调用 STS GetSessionToken（按 profile 的 region）</text>
+      <text x="578" y="206">⑤ 写缓存（600 权限），输出 JSON 给调用方</text>
+      <text x="578" y="234" fill="#56606B">STS 失败（如 root）时直接输出长期密钥，不落盘</text>
+      <text x="578" y="262" fill="#56606B">清除调用方带入的 AWS_REGION / AWS_PROFILE，避免串区</text>
+    </g>
+    <!-- return arrow -->
+    <path d="M562 270 C 420 300, 260 300, 170 210" fill="none" stroke="#D98E1F" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#ah)"/>
+    <text x="350" y="304" font-size="11.5" fill="#8A5A12" text-anchor="middle">临时凭证 JSON（ASIA…，1 小时）</text>
+    <!-- lower layer -->
+    <line x1="20" y1="340" x2="980" y2="340" stroke="#DDE2E7"/>
+    <text x="20" y="364" font-size="12" fill="#8C959F">本机存储与硬件</text>
+    <rect x="20" y="380" width="230" height="150" rx="3" fill="#fff" stroke="#DDE2E7"/>
+    <text x="34" y="404" font-size="13" font-weight="600" fill="#12324A">~/.aws/vault/</text>
+    <g font-size="11.5" fill="#56606B" class="m">
+      <text x="34" y="428">prod-a.enc … ×54   密文</text>
+      <text x="34" y="448">se-key.bin   芯片密钥句柄</text>
+      <text x="34" y="468">se-pub.bin   公钥（加密用）</text>
+      <text x="34" y="488">cache/*.json 临时凭证</text>
+    </g>
+    <text x="34" y="514" font-size="11" fill="#8C959F">目录 700 / 文件 600</text>
+    <rect x="300" y="380" width="230" height="150" rx="3" fill="#fff" stroke="#12324A" stroke-width="1.5"/>
+    <text x="314" y="404" font-size="13" font-weight="600" fill="#12324A">aws-se（Swift）</text>
+    <g font-size="12" fill="#1D2329">
+      <text x="314" y="430">init：芯片内生成 P-256 密钥</text>
+      <text x="314" y="452">encrypt：公钥加密，不需指纹</text>
+      <text x="314" y="474">decrypt：私钥解密，<tspan fill="#8A5A12" font-weight="600">必须 Touch ID</tspan></text>
+    </g>
+    <text x="314" y="500" font-size="11" fill="#8C959F" class="m">ECIES: ECDH + HKDF-SHA256</text>
+    <text x="314" y="516" font-size="11" fill="#8C959F" class="m">      + AES-256-GCM</text>
+    <rect x="580" y="380" width="190" height="150" rx="3" fill="#12324A"/>
+    <text x="596" y="406" font-size="13" font-weight="600" fill="#fff">Secure Enclave</text>
+    <g font-size="11.5" fill="#C9D6E0">
+      <text x="596" y="432">私钥不出芯片</text>
+      <text x="596" y="452">biometryCurrentSet</text>
+      <text x="596" y="472">WhenUnlockedThisDeviceOnly</text>
+      <text x="596" y="496" fill="#F3C27A">增删指纹 → 密钥失效</text>
+    </g>
+    <rect x="810" y="380" width="170" height="150" rx="3" fill="#fff" stroke="#DDE2E7"/>
+    <text x="824" y="406" font-size="13" font-weight="600" fill="#12324A">SafeInCloud</text>
+    <g font-size="12" fill="#56606B">
+      <text x="824" y="432">原始 AKSK 离线备份</text>
+      <text x="824" y="454">唯一的恢复来源</text>
+      <text x="824" y="476">重建时用 aws-add 导回</text>
+    </g>
+    <!-- connectors -->
+    <path d="M700 290 L470 378" stroke="#D98E1F" stroke-width="2" marker-end="url(#ah)"/>
+    <text x="610" y="330" font-size="11" fill="#8A5A12">③ decrypt</text>
+    <path d="M530 455 L578 455" stroke="#D98E1F" stroke-width="2" marker-end="url(#ah)"/>
+    <text x="554" y="446" font-size="10.5" fill="#8A5A12" text-anchor="middle">指纹</text>
+    <path d="M300 455 L252 455" stroke="#8C959F" stroke-width="1.5" marker-end="url(#ag)"/>
+    <text x="276" y="446" font-size="10.5" fill="#8C959F" text-anchor="middle">读密文</text>
+    <path d="M810 500 L772 500" stroke="#8C959F" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#ag)"/>
+    <text x="791" y="520" font-size="10.5" fill="#8C959F" text-anchor="middle">恢复</text>
+  </svg>
+  </div>
+</section>
+
+<section>
+  <h2>一次调用的时序：每个 profile 每小时只按一次指纹</h2>
+  <p class="h2sub">以 Kiro 调用 <code>aws sts get-caller-identity --profile dev</code> 为例。缓存命中时跳过 ③–⑤，不会弹任何窗口。</p>
+  <div class="panel scroll">
+  <svg viewBox="0 0 1000 430" width="100%" style="min-width:760px" role="img" aria-label="调用时序图">
+    <defs><marker id="sa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="#D98E1F"/></marker>
+    <marker id="sg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="#8C959F"/></marker></defs>
+    <g font-size="13" font-weight="600" fill="#12324A" text-anchor="middle">
+      <rect x="30" y="14" width="120" height="34" rx="3" fill="#fff" stroke="#DDE2E7"/><text x="90" y="36">Kiro / CLI</text>
+      <rect x="220" y="14" width="120" height="34" rx="3" fill="#FBF1E1" stroke="#D98E1F"/><text x="280" y="36">aws-cred</text>
+      <rect x="410" y="14" width="120" height="34" rx="3" fill="#fff" stroke="#DDE2E7"/><text x="470" y="36">缓存</text>
+      <rect x="600" y="14" width="120" height="34" rx="3" fill="#fff" stroke="#12324A"/><text x="660" y="36">aws-se + 指纹</text>
+      <rect x="800" y="14" width="160" height="34" rx="3" fill="#fff" stroke="#DDE2E7"/><text x="880" y="36">AWS STS（cn / global）</text>
+    </g>
+    <g stroke="#DDE2E7" stroke-dasharray="3 4"><line x1="90" y1="48" x2="90" y2="420"/><line x1="280" y1="48" x2="280" y2="420"/><line x1="470" y1="48" x2="470" y2="420"/><line x1="660" y1="48" x2="660" y2="420"/><line x1="880" y1="48" x2="880" y2="420"/></g>
+    <g font-size="12" fill="#1D2329">
+      <path d="M90 80 L276 80" stroke="#D98E1F" stroke-width="2" marker-end="url(#sa)"/><text x="100" y="72">① credential_process dev</text>
+      <path d="M280 115 L466 115" stroke="#8C959F" stroke-width="1.5" marker-end="url(#sg)"/><text x="290" y="107">② 查 cache/dev.json</text>
+      <path d="M470 145 L284 145" stroke="#8C959F" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#sg)"/><text x="300" y="162" fill="#56606B">未命中或将过期 → 加锁</text>
+      <path d="M280 195 L656 195" stroke="#D98E1F" stroke-width="2" marker-end="url(#sa)"/><text x="290" y="187">③ aws-se decrypt dev</text>
+      <rect x="620" y="205" width="80" height="26" rx="3" fill="#D98E1F"/><text x="660" y="222" text-anchor="middle" fill="#fff" font-weight="600">Touch ID</text>
+      <path d="M660 250 L284 250" stroke="#D98E1F" stroke-width="2" stroke-dasharray="5 3" marker-end="url(#sa)"/><text x="300" y="268" fill="#8A5A12">AK SK（只在内存中）</text>
+      <path d="M280 300 L876 300" stroke="#D98E1F" stroke-width="2" marker-end="url(#sa)"/><text x="290" y="292">④ GetSessionToken 3600s @ cn-northwest-1</text>
+      <path d="M880 330 L284 330" stroke="#D98E1F" stroke-width="2" stroke-dasharray="5 3" marker-end="url(#sa)"/><text x="600" y="348" fill="#8A5A12">ASIA… 临时凭证</text>
+      <path d="M280 370 L466 370" stroke="#8C959F" stroke-width="1.5" marker-end="url(#sg)"/><text x="290" y="362">⑤ 写缓存 600</text>
+      <path d="M280 400 L94 400" stroke="#D98E1F" stroke-width="2" stroke-dasharray="5 3" marker-end="url(#sa)"/><text x="104" y="392" fill="#8A5A12">JSON → 调用继续</text>
+    </g>
+  </svg>
+  </div>
+</section>
+
+<section>
+  <h2>日常只需记住 8 个命令</h2>
+  <p class="h2sub">管理函数在 <code>~/.aws/aws_profile_manager.sh</code>，由 <code>~/.zshrc</code> 自动加载。</p>
+  <div class="two">
+    <div class="panel scroll">
+    <table>
+      <thead><tr><th>命令</th><th>作用</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">aws-ls</td><td>列出 profile，🔐 表示已加密</td></tr>
+        <tr><td class="mono">aws-add &lt;名&gt; &lt;AK&gt; [region]</td><td>SK 交互输入；先验证 STS，再加密、写 config</td></tr>
+        <tr><td class="mono">aws-rm &lt;名&gt;</td><td>输入 y 确认；删除密文、缓存和 config</td></tr>
+        <tr><td class="mono">aws-show &lt;名&gt;</td><td>查看配置和缓存到期时间，不显示密钥</td></tr>
+        <tr><td class="mono">aws-region &lt;名&gt; &lt;region&gt;</td><td>修改 region，并作废旧缓存</td></tr>
+        <tr><td class="mono">aws-test [名|--all]</td><td>验证身份</td></tr>
+        <tr><td class="mono">aws-use &lt;名&gt; [命令]</td><td>用该 profile 执行一条命令，或设为当前 shell 默认</td></tr>
+        <tr><td class="mono">aws-lock</td><td>清空缓存，下次重新按指纹</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <div>
+<pre><span class="c"># 原有用法不变，首次弹 Touch ID</span>
+aws sts get-caller-identity --profile dev
+
+<span class="c"># 新增客户账号</span>
+aws-add newclient AKIA... cn-northwest-1
+<span class="a">Secret Access Key:</span> ********
+<span class="c"># ✅ 已添加，身份 arn:aws-cn:iam::…</span>
+<span class="c"># 记得同步存入 SafeInCloud</span>
+
+<span class="c"># 离开电脑前</span>
+aws-lock</pre>
+      <div class="pick"><b>不要</b>在 <code>~/.zshrc</code> 里设置全局 <code>AWS_REGION</code>。它会覆盖 profile 自己的 region，导致中国区账号访问海外 STS 地址，报 <code>InvalidClientTokenId</code>。</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>防得住文件被读走，防不住授权后 1 小时内的滥用</h2>
+  <p class="h2sub">加密只解决"密钥怎么存"，权限要靠 IAM 最小权限来收紧。</p>
+  <div class="two">
+    <div class="panel">
+      <h3 style="margin:0 0 8px;font-size:15px;color:var(--page-ink)">防得住</h3>
+      <ul class="list">
+        <li>恶意包、插件扫描 <code>~/.aws</code></li>
+        <li>云盘同步、备份、磁盘被拷走</li>
+        <li>智能体在你不知情时启用新的 profile</li>
+        <li>工具在日志或报错里打印出长期 AK</li>
+        <li>篡改缓存文件来跳过指纹（缓存只存临时凭证，不再有"已验证"标记文件）</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h3 style="margin:0 0 8px;font-size:15px;color:#9A3B2E">防不住</h3>
+      <ul class="list">
+        <li>按过指纹后 1 小时内，以你身份运行的进程能读取缓存的临时凭证</li>
+        <li>智能体被提示词注入后，在已授权窗口内滥用权限</li>
+        <li>本人在不清楚原因时按了指纹</li>
+        <li>root 密钥换不了 STS 临时凭证，只能直接输出长期密钥</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>配套治理：加密只管"怎么存"，权限要靠 IAM 收紧</h2>
+  <p class="h2sub">用 <code>scripts/audit_permissions.sh</code>（只读）盘点后，按下表处理。</p>
+  <div class="panel scroll">
+  <table>
+    <thead><tr><th>发现</th><th>处理</th><th>优先级</th></tr></thead>
+    <tbody>
+      <tr><td>Root 账号的 Access Key</td><td>查最近使用时间后删除，root 只用于控制台并开 MFA</td><td><span class="tag hi">高</span></td></tr>
+      <tr><td>AdministratorAccess 给了智能体使用的 profile</td><td>为智能体单独建只读用户（如 agent-readonly），管理员 profile 只留给本人</td><td><span class="tag hi">高</span></td></tr>
+      <tr><td>名义只读但带 IAMFullAccess</td><td>去掉 IAMFullAccess，防止自我提权</td><td><span class="tag">中</span></td></tr>
+      <tr><td>同一 IAM 用户配置了多个 profile 名</td><td>合并为一个，其余改别名</td><td><span class="tag">中</span></td></tr>
+      <tr><td>密钥超过 90 天未轮换</td><td>轮换后 aws-add 重新加密，并同步离线备份</td><td><span class="tag">中</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section>
+  <h2>故障与恢复</h2>
+  <div class="two">
+    <div class="panel scroll">
+    <table>
+      <thead><tr><th>现象</th><th>处理</th></tr></thead>
+      <tbody>
+        <tr><td><code>custom-process</code> 报错</td><td><code>aws-lock</code> 后重试；或执行 <code>bash -x ~/.aws/bin/aws-cred &lt;名&gt;</code></td></tr>
+        <tr><td><code>InvalidClientTokenId</code></td><td>检查 <code>env | grep AWS_REGION</code>；用 <code>aws-test</code> 验证</td></tr>
+        <tr><td>增删指纹后全部失败</td><td>芯片密钥已失效：重装后用 SafeInCloud 恢复</td></tr>
+        <tr><td>换了新 Mac</td><td>芯片密钥不能迁移：同上，在新机器上重建</td></tr>
+        <tr><td>智能体卡住</td><td>屏幕已锁定或指纹窗口没人处理：解锁屏幕或按指纹</td></tr>
+      </tbody>
+    </table>
+    </div>
+<pre><span class="c"># 安装 / 重建</span>
+git clone https://github.com/rjwang1982/aws-credguard.git && cd aws-credguard
+./install.sh
+source ~/.zshrc
+aws-add &lt;名&gt; &lt;AK&gt; &lt;region&gt;   <span class="c"># 从 SafeInCloud 逐个恢复</span>
+
+<span class="c"># 验收</span>
+grep -rlE 'AKIA[0-9A-Z]{16}' ~/.aws | grep -v /vault/ \
+  || echo "无明文"
+ls ~/.aws/credentials        <span class="c"># 应不存在</span>
+aws-test dev                  <span class="c"># 按指纹后返回 ARN</span></pre>
+  </div>
+</section>
+
+<section>
+  <h2>文件清单</h2>
+<pre>aws-credguard/
+├── docs/AWS_CredGuard.html       <span class="c">本页</span>
+├── README.md                     <span class="c">文字版</span>
+├── LICENSE
+├── install.sh                    <span class="c">安装：编译 aws-se，部署 aws-cred 和管理函数</span>
+├── src/aws-se.swift              <span class="c">Secure Enclave 加解密</span>
+├── bin/aws-cred                  <span class="c">credential_process 包装</span>
+├── shell/aws_profile_manager.sh  <span class="c">aws-ls / add / rm / show / region / test / use / lock</span>
+└── scripts/audit_permissions.sh  <span class="c">权限盘点（只读）</span></pre>
+</section>
+
+<footer>AWS CredGuard v1.0 · MIT License · 仅在 Apple Silicon Mac（macOS + Touch ID）上测试。本项目不是 AWS 官方工具。</footer>
+</div>
+<script>document.querySelectorAll('.fade').forEach(function(e){e.classList.add('on')});</script>
+</body>
+</html>
