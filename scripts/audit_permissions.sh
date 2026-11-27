@@ -1,5 +1,8 @@
 #!/bin/bash
-# 只读盘点：每个 profile 的身份与权限（读明文 credentials，避免钥匙串弹窗）
+# 只读盘点：每个 profile 的身份与权限（profile 列表取自 ~/.aws/config）
+# 注意：aws-cred 输出未带 MFA 的 GetSessionToken 临时凭证，IAM 接口会被拒绝，
+#       此时级别显示 UNKNOWN_NO_IAM_READ；权限请以控制台 IAM 凭证报告为准。
+# 未缓存的 profile 每个会弹一次 Touch ID。
 export AWS_MAX_ATTEMPTS=1 AWS_PAGER=""
 O="--cli-connect-timeout 5 --cli-read-timeout 15 --output text"
 one() {
@@ -24,5 +27,5 @@ one() {
   printf "%s\t%s\t%s\t%s\tattached=%s inline=%s groups=%s\n" "$p" "$r" "$arn" "$lvl" "$pol" "$inl" "$gp"
 }
 export -f one; export O
-grep -E '^\[' ~/.aws/credentials | tr -d '[]' | xargs -P 8 -I{} bash -c 'one "$@"' _ {} > "$1.tmp"
+grep -E '^\[' ~/.aws/config | sed -E 's/^\[(profile )?//; s/\]$//' | xargs -P 8 -I{} bash -c 'one "$@"' _ {} > "$1.tmp"
 sort "$1.tmp" > "$1"; rm -f "$1.tmp"; echo DONE >> "$1.done"

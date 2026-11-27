@@ -164,7 +164,7 @@ footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--page-line);fo
       <text x="596" y="496" fill="#F3C27A">增删指纹 → 密钥失效</text>
     </g>
     <rect x="810" y="380" width="170" height="150" rx="3" fill="#fff" stroke="#DDE2E7"/>
-    <text x="824" y="406" font-size="13" font-weight="600" fill="#12324A">SafeInCloud</text>
+    <text x="824" y="406" font-size="13" font-weight="600" fill="#12324A">AWS 控制台重建</text>
     <g font-size="12" fill="#56606B">
       <text x="824" y="432">原始 AKSK 离线备份</text>
       <text x="824" y="454">唯一的恢复来源</text>
@@ -241,7 +241,7 @@ aws sts get-caller-identity --profile dev
 aws-add newclient AKIA... cn-northwest-1
 <span class="a">Secret Access Key:</span> ********
 <span class="c"># ✅ 已添加，身份 arn:aws-cn:iam::…</span>
-<span class="c"># 记得同步存入 SafeInCloud</span>
+<span class="c"># 不做明文备份；失效时到控制台重新生成</span>
 
 <span class="c"># 离开电脑前</span>
 aws-lock</pre>
@@ -302,7 +302,7 @@ aws-lock</pre>
       <tbody>
         <tr><td><code>custom-process</code> 报错</td><td><code>aws-lock</code> 后重试；或执行 <code>bash -x ~/.aws/bin/aws-cred &lt;名&gt;</code></td></tr>
         <tr><td><code>InvalidClientTokenId</code></td><td>检查 <code>env | grep AWS_REGION</code>；用 <code>aws-test</code> 验证</td></tr>
-        <tr><td>增删指纹后全部失败</td><td>芯片密钥已失效：重装后用 SafeInCloud 恢复</td></tr>
+        <tr><td>增删指纹后全部失败</td><td>芯片密钥已失效：重装后到控制台重新生成密钥，再 aws-add</td></tr>
         <tr><td>换了新 Mac</td><td>芯片密钥不能迁移：同上，在新机器上重建</td></tr>
         <tr><td>智能体卡住</td><td>屏幕已锁定或指纹窗口没人处理：解锁屏幕或按指纹</td></tr>
       </tbody>
@@ -312,7 +312,7 @@ aws-lock</pre>
 git clone https://github.com/rjwang1982/aws-credguard.git && cd aws-credguard
 ./install.sh
 source ~/.zshrc
-aws-add &lt;名&gt; &lt;AK&gt; &lt;region&gt;   <span class="c"># 从 SafeInCloud 逐个恢复</span>
+aws-add &lt;名&gt; &lt;AK&gt; &lt;region&gt;   <span class="c"># 控制台重新生成密钥后逐个添加</span>
 
 <span class="c"># 验收</span>
 grep -rlE 'AKIA[0-9A-Z]{16}' ~/.aws | grep -v /vault/ \

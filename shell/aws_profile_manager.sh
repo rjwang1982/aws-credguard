@@ -82,7 +82,7 @@ aws-add() {
         "$name" "$region" "$AWS_CRED_BIN" "$name" >> "$AWS_CONF"
     echo "✅ 已添加: $name (region: $region)"
     echo "   身份: $arn"
-    echo "   提醒: 请同步把 AK/SK 存入 SafeInCloud 作为备份"
+    echo "   提醒: 本机不保留明文备份；密钥失效时到控制台重新生成"
 }
 
 # ============================================================
@@ -92,7 +92,7 @@ aws-rm() {
     local name="$1"
     [ -z "$name" ] && { echo "用法: aws-rm <profile_name>"; return 1; }
     [ "$name" = "default" ] && { echo "⚠️  不能删除 default profile"; return 1; }
-    printf "确认删除 '%s'？此操作不可恢复（需从 SafeInCloud 重新添加）[y/N] " "$name"
+    printf "确认删除 '%s'？此操作不可恢复（需到控制台重新生成密钥后 aws-add）[y/N] " "$name"
     local c; read -r c; [ "$c" = "y" ] || { echo "已取消"; return 1; }
 
     if [ -f "$AWS_VAULT_DIR/$name.enc" ]; then
@@ -195,6 +195,6 @@ AWS Profile 管理（Touch ID 加密版）
   aws-test [name|--all]          验证
   aws-use <name> [cmd...]        用该 profile 执行命令 / 设为当前 shell 默认
   aws-lock                       清除临时凭证缓存，强制下次 Touch ID
-注意：增删 Mac 指纹会使 SE 密钥失效，需从 SafeInCloud 恢复后重新 aws-add
+注意：增删 Mac 指纹会使 SE 密钥失效，需到控制台重新生成密钥后逐个 aws-add
 EOF
 }

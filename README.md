@@ -124,6 +124,8 @@ aws-rm prod-a               # 删除（需确认）
 | 增删指纹后全部无法解密 | Secure Enclave 密钥已失效：`mv ~/.aws/vault ~/.aws/vault.old && ./install.sh`，再从离线备份用 `aws-add` 恢复 |
 | 换了新 Mac | Secure Enclave 密钥不能迁移：同上，在新机器上重建 |
 | 智能体卡住 | 屏幕已锁定，或指纹窗口没人处理 |
+| IAM 接口报 `InvalidClientTokenId`，但 `aws sts get-caller-identity` 正常 | 临时凭证由未带 MFA 的 GetSessionToken 换取，AWS 不允许它调用 IAM API（密钥本身有效）。权限盘点请用控制台 IAM → 凭证报告 |
+| 每次调用先弹密码窗口，再弹 Touch ID | `aws-se` 为 adhoc 签名，重新编译后钥匙串授权失效。用固定证书安装：`CREDGUARD_SIGN_ID=<证书> ./install.sh`，首次弹窗点“始终允许” |
 
 ## 与其他方案的比较
 

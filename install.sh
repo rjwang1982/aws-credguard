@@ -5,6 +5,9 @@ cd "$(dirname "$0")"
 command -v swiftc >/dev/null || { echo "需要 Xcode Command Line Tools: xcode-select --install"; exit 1; }
 mkdir -p ~/.aws/bin ~/.aws/vault/cache; chmod 700 ~/.aws/bin ~/.aws/vault ~/.aws/vault/cache
 swiftc -O src/aws-se.swift -o ~/.aws/bin/aws-se
+# 签名：默认 adhoc（-）。adhoc 每次编译签名都会变，钥匙串会再次弹密码；可用固定证书：
+#   CREDGUARD_SIGN_ID="<证书名或SHA1>" ./install.sh   （查询：security find-identity -p codesigning -v）
+codesign -f -s "${CREDGUARD_SIGN_ID:--}" ~/.aws/bin/aws-se
 install -m 700 bin/aws-cred ~/.aws/bin/aws-cred
 [ -f ~/.aws/aws_profile_manager.sh ] && cp -p ~/.aws/aws_profile_manager.sh ~/.aws/aws_profile_manager.sh.bak_$(date +%Y%m%d_%H%M%S)
 install -m 600 shell/aws_profile_manager.sh ~/.aws/aws_profile_manager.sh
