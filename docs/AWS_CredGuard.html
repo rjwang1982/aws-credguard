@@ -92,93 +92,41 @@ footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--page-line);fo
 
 <section>
   <h2>架构：在 AWS CLI 和密钥之间加一道指纹关口</h2>
-  <p class="h2sub">琥珀色是凭证经过的路径。调用方只看到 config 里的 <code>credential_process</code>，不知道密钥存在哪里。</p>
+  <p class="h2sub">调用方只认 <code>credential_process</code>；密钥由 Secure Enclave 加密，按指纹才能解开，出门的只有临时凭证。</p>
   <div class="panel scroll">
-  <svg viewBox="0 0 1000 560" width="100%" style="min-width:760px" role="img" aria-label="AWS CredGuard 架构图">
+  <svg viewBox="0 0 1000 330" width="100%" style="min-width:720px" role="img" aria-label="AWS CredGuard 架构图">
     <defs>
       <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="#D98E1F"/></marker>
-      <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="#8C959F"/></marker>
     </defs>
-    <!-- callers -->
-    <text x="20" y="28" font-size="12" fill="#8C959F">调用方（用法不变）</text>
-    <g font-size="13" fill="#1D2329">
-      <rect x="20" y="40" width="150" height="40" rx="3" fill="#fff" stroke="#DDE2E7"/><text x="95" y="65" text-anchor="middle">Kiro</text>
-      <rect x="20" y="88" width="150" height="40" rx="3" fill="#fff" stroke="#DDE2E7"/><text x="95" y="113" text-anchor="middle">AWS Quick</text>
-      <rect x="20" y="136" width="150" height="40" rx="3" fill="#fff" stroke="#DDE2E7"/><text x="95" y="161" text-anchor="middle">MCP Server</text>
-      <rect x="20" y="184" width="150" height="40" rx="3" fill="#fff" stroke="#DDE2E7"/><text x="95" y="209" text-anchor="middle">aws CLI / Terraform / SDK</text>
+    <g text-anchor="middle">
+      <rect x="20" y="60" width="170" height="90" rx="4" fill="#fff" stroke="#DDE2E7"/>
+      <text x="105" y="95" font-size="15" font-weight="600" fill="#12324A">调用方</text>
+      <text x="105" y="120" font-size="12" fill="#56606B">CLI / SDK / Kiro / MCP</text>
+
+      <rect x="250" y="60" width="170" height="90" rx="4" fill="#fff" stroke="#12324A" stroke-width="1.5"/>
+      <text x="335" y="95" font-size="15" font-weight="600" fill="#12324A">~/.aws/config</text>
+      <text x="335" y="120" font-size="12" fill="#8A5A12" class="m">credential_process</text>
+
+      <rect x="480" y="60" width="200" height="90" rx="4" fill="#FBF1E1" stroke="#D98E1F" stroke-width="1.5"/>
+      <text x="580" y="95" font-size="15" font-weight="700" fill="#12324A">aws-cred</text>
+      <text x="580" y="120" font-size="12" fill="#56606B">缓存有效则直接返回</text>
+
+      <rect x="740" y="60" width="240" height="90" rx="4" fill="#12324A"/>
+      <text x="860" y="95" font-size="15" font-weight="600" fill="#fff">Touch ID + Secure Enclave</text>
+      <text x="860" y="120" font-size="12" fill="#C9D6E0">解密 ~/.aws/vault/*.enc</text>
+
+      <rect x="480" y="220" width="200" height="80" rx="4" fill="#fff" stroke="#DDE2E7"/>
+      <text x="580" y="253" font-size="15" font-weight="600" fill="#12324A">AWS STS</text>
+      <text x="580" y="276" font-size="12" fill="#56606B">GetSessionToken · 1 小时</text>
     </g>
-    <path d="M170 132 L250 132" stroke="#D98E1F" stroke-width="2" marker-end="url(#ah)"/>
-    <text x="210" y="122" font-size="11" fill="#56606B" text-anchor="middle" class="m">--profile prod-a</text>
-    <!-- config -->
-    <rect x="252" y="80" width="230" height="104" rx="3" fill="#fff" stroke="#12324A" stroke-width="1.5"/>
-    <text x="266" y="102" font-size="13" font-weight="600" fill="#12324A">~/.aws/config</text>
-    <text x="266" y="126" font-size="11.5" fill="#56606B" class="m">[profile prod-a]</text>
-    <text x="266" y="144" font-size="11.5" fill="#56606B" class="m">region = cn-northwest-1</text>
-    <text x="266" y="162" font-size="11.5" fill="#8A5A12" class="m">credential_process =</text>
-    <text x="266" y="177" font-size="11.5" fill="#8A5A12" class="m">  ~/.aws/bin/aws-cred prod-a</text>
-    <path d="M482 132 L560 132" stroke="#D98E1F" stroke-width="2" marker-end="url(#ah)"/>
-    <text x="521" y="122" font-size="11" fill="#56606B" text-anchor="middle">调用</text>
-    <!-- aws-cred -->
-    <rect x="562" y="40" width="418" height="250" rx="3" fill="#FBF1E1" stroke="#D98E1F" stroke-width="1.5"/>
-    <text x="578" y="64" font-size="14" font-weight="700" fill="#12324A">aws-cred</text>
-    <text x="650" y="64" font-size="12" fill="#56606B">credential_process 包装脚本</text>
-    <g font-size="12.5" fill="#1D2329">
-      <text x="578" y="94">① 缓存有效（剩余 &gt; 5 分钟）→ 直接返回临时凭证</text>
-      <text x="578" y="122">② 加锁：并发调用排队，只弹一次指纹</text>
-      <text x="578" y="150">③ 调 aws-se 解密 → <tspan font-weight="600" fill="#8A5A12">Touch ID</tspan></text>
-      <text x="578" y="178">④ 内存中调用 STS GetSessionToken（按 profile 的 region）</text>
-      <text x="578" y="206">⑤ 写缓存（600 权限），输出 JSON 给调用方</text>
-      <text x="578" y="234" fill="#9A3B2E">STS 换取失败时报错退出，从不输出长期密钥</text>
-      <text x="578" y="262" fill="#56606B">清除调用方带入的 AWS_REGION / AWS_PROFILE，避免串区</text>
+    <g font-size="12" fill="#56606B" text-anchor="middle">
+      <path d="M190 105 L246 105" stroke="#D98E1F" stroke-width="2" marker-end="url(#ah)"/><text x="218" y="95" class="m">--profile</text>
+      <path d="M420 105 L476 105" stroke="#D98E1F" stroke-width="2" marker-end="url(#ah)"/><text x="448" y="95">调用</text>
+      <path d="M680 105 L736 105" stroke="#D98E1F" stroke-width="2" marker-end="url(#ah)"/><text x="708" y="95">按指纹</text>
+      <path d="M860 150 L860 260 L684 260" fill="none" stroke="#D98E1F" stroke-width="2" marker-end="url(#ah)"/><text x="772" y="250">长期 AKSK（只在内存）</text>
+      <path d="M480 260 L105 260 L105 154" fill="none" stroke="#D98E1F" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#ah)"/><text x="292" y="250" fill="#8A5A12">临时凭证 ASIA…（缓存 1 小时）</text>
     </g>
-    <!-- return arrow -->
-    <path d="M562 270 C 420 300, 260 300, 170 210" fill="none" stroke="#D98E1F" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#ah)"/>
-    <text x="350" y="304" font-size="11.5" fill="#8A5A12" text-anchor="middle">临时凭证 JSON（ASIA…，1 小时）</text>
-    <!-- lower layer -->
-    <line x1="20" y1="340" x2="980" y2="340" stroke="#DDE2E7"/>
-    <text x="20" y="364" font-size="12" fill="#8C959F">本机存储与硬件</text>
-    <rect x="20" y="380" width="230" height="150" rx="3" fill="#fff" stroke="#DDE2E7"/>
-    <text x="34" y="404" font-size="13" font-weight="600" fill="#12324A">~/.aws/vault/</text>
-    <g font-size="11.5" fill="#56606B" class="m">
-      <text x="34" y="428">prod-a.enc … ×54   密文</text>
-      <text x="34" y="448">se-key.bin   芯片密钥句柄</text>
-      <text x="34" y="468">se-pub.bin   公钥（加密用）</text>
-      <text x="34" y="488">cache/*.json 临时凭证</text>
-    </g>
-    <text x="34" y="514" font-size="11" fill="#8C959F">目录 700 / 文件 600</text>
-    <rect x="300" y="380" width="230" height="150" rx="3" fill="#fff" stroke="#12324A" stroke-width="1.5"/>
-    <text x="314" y="404" font-size="13" font-weight="600" fill="#12324A">aws-se（Swift）</text>
-    <g font-size="12" fill="#1D2329">
-      <text x="314" y="430">init：芯片内生成 P-256 密钥</text>
-      <text x="314" y="452">encrypt：公钥加密，不需指纹</text>
-      <text x="314" y="474">decrypt：私钥解密，<tspan fill="#8A5A12" font-weight="600">必须 Touch ID</tspan></text>
-    </g>
-    <text x="314" y="500" font-size="11" fill="#8C959F" class="m">ECIES: ECDH + HKDF-SHA256</text>
-    <text x="314" y="516" font-size="11" fill="#8C959F" class="m">      + AES-256-GCM</text>
-    <rect x="580" y="380" width="190" height="150" rx="3" fill="#12324A"/>
-    <text x="596" y="406" font-size="13" font-weight="600" fill="#fff">Secure Enclave</text>
-    <g font-size="11.5" fill="#C9D6E0">
-      <text x="596" y="432">私钥不出芯片</text>
-      <text x="596" y="452">biometryCurrentSet</text>
-      <text x="596" y="472">WhenUnlockedThisDeviceOnly</text>
-      <text x="596" y="496" fill="#F3C27A">增删指纹 → 密钥失效</text>
-    </g>
-    <rect x="810" y="380" width="170" height="150" rx="3" fill="#fff" stroke="#DDE2E7"/>
-    <text x="824" y="406" font-size="13" font-weight="600" fill="#12324A">AWS 控制台重建</text>
-    <g font-size="12" fill="#56606B">
-      <text x="824" y="432">失效时 IAM 重新生成</text>
-      <text x="824" y="454">唯一的恢复来源</text>
-      <text x="824" y="476">重建时用 aws-add 导回</text>
-    </g>
-    <!-- connectors -->
-    <path d="M700 290 L470 378" stroke="#D98E1F" stroke-width="2" marker-end="url(#ah)"/>
-    <text x="610" y="330" font-size="11" fill="#8A5A12">③ decrypt</text>
-    <path d="M530 455 L578 455" stroke="#D98E1F" stroke-width="2" marker-end="url(#ah)"/>
-    <text x="554" y="446" font-size="10.5" fill="#8A5A12" text-anchor="middle">指纹</text>
-    <path d="M300 455 L252 455" stroke="#8C959F" stroke-width="1.5" marker-end="url(#ag)"/>
-    <text x="276" y="446" font-size="10.5" fill="#8C959F" text-anchor="middle">读密文</text>
-    <path d="M810 500 L772 500" stroke="#8C959F" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#ag)"/>
-    <text x="791" y="520" font-size="10.5" fill="#8C959F" text-anchor="middle">恢复</text>
+    <text x="20" y="30" font-size="12" fill="#8C959F">STS 失败即报错退出，长期密钥从不交给调用方；增删指纹或换机后密钥失效，需在控制台重新生成 AKSK</text>
   </svg>
   </div>
 </section>
