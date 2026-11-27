@@ -2,7 +2,7 @@
 
 **Keep AWS access keys off disk in plaintext on macOS. Every new use requires Touch ID; tools only ever receive 1-hour STS credentials.**
 
-在 macOS 上把 AWS 长期密钥（AKSK）交给 **Secure Enclave** 加密，每次启用都要按 **Touch ID**，交给工具的只有 **1 小时有效的 STS 临时凭证**。`--profile` 用法不变，AWS CLI、SDK、Terraform、MCP Server 和 AI 编码智能体（如 Kiro）都不用改。
+在 macOS 上用 Mac 安全芯片（**Secure Enclave**）里生成的密钥加密 AWS 长期密钥（AKSK）。这把密钥生成在芯片内、无法导出，磁盘上只有密文；每次启用都要按 **Touch ID**，交给工具的只有 **1 小时有效的 STS 临时凭证**。`--profile` 用法不变，AWS CLI、SDK、Terraform、MCP Server 和 AI 编码智能体（如 Kiro）都不用改。
 
 > 图文版（含架构图和时序图）：https://rjwang1982.github.io/aws-credguard/ （源文件 [`docs/AWS_CredGuard.html`](docs/AWS_CredGuard.html)）
 

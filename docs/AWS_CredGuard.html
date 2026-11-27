@@ -64,7 +64,7 @@ footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--page-line);fo
 <header>
   <div class="meta">AWS CredGuard · v1.0 · 2026-11 · 作者：RJ Wang · MIT License</div>
   <h1>AWS CredGuard：本机不存明文 AKSK，<br>每次启用凭证都要本人按指纹</h1>
-  <p class="lead">一台 Mac 上管着几十个 AWS 账号的长期密钥，人和 AI 智能体（Kiro、Quick、MCP）共用。本方案把 AKSK 交给 Mac 的<b>安全芯片（Secure Enclave）</b>加密，解密必须按 <b>Touch ID</b>；交给工具的只有 <b>1 小时有效的 STS 临时凭证</b>，长期密钥永远不出内存；不支持、也不应存在 root 账号的 Access Key；原来的 <code>--profile</code> 用法不变。</p>
+  <p class="lead">一台 Mac 上管着几十个 AWS 账号的长期密钥，人和 AI 智能体（Kiro、Quick、MCP）共用。本方案用 Mac <b>安全芯片（Secure Enclave）</b>里生成的密钥加密 AKSK：这把密钥锁在芯片里、拷不走，解密必须按 <b>Touch ID</b>；交给工具的只有 <b>1 小时有效的 STS 临时凭证</b>，长期密钥永远不出内存；不支持、也不应存在 root 账号的 Access Key；原来的 <code>--profile</code> 用法不变。</p>
   <div class="stats">
     <div><div class="v">0</div><div class="k">本机明文 AKSK</div></div>
     <div><div class="v">SE</div><div class="k">Secure Enclave 加密存储</div></div>
@@ -92,7 +92,7 @@ footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--page-line);fo
 
 <section>
   <h2>架构：在 AWS CLI 和密钥之间加一道指纹关口</h2>
-  <p class="h2sub">调用方只认 <code>credential_process</code>；密钥由 Secure Enclave 加密，按指纹才能解开，出门的只有临时凭证。</p>
+  <p class="h2sub">AKSK 用 <b>Mac 安全芯片（Secure Enclave）里的密钥</b>加密后存盘；这把密钥生成在芯片内、永远导不出来，必须按指纹才肯解密。调用方只认 <code>credential_process</code>，拿到的只有临时凭证。</p>
   <div class="panel scroll">
   <svg viewBox="0 0 1000 330" width="100%" style="min-width:720px" role="img" aria-label="AWS CredGuard 架构图">
     <defs>
@@ -112,8 +112,9 @@ footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--page-line);fo
       <text x="580" y="120" font-size="12" fill="#56606B">缓存有效则直接返回</text>
 
       <rect x="740" y="60" width="240" height="90" rx="4" fill="#12324A"/>
-      <text x="860" y="95" font-size="15" font-weight="600" fill="#fff">Touch ID + Secure Enclave</text>
-      <text x="860" y="120" font-size="12" fill="#C9D6E0">解密 ~/.aws/vault/*.enc</text>
+      <text x="860" y="88" font-size="15" font-weight="600" fill="#fff">Mac 安全芯片</text>
+      <text x="860" y="110" font-size="12" fill="#F3C27A">解密密钥在芯片内，导不出</text>
+      <text x="860" y="130" font-size="12" fill="#C9D6E0">按 Touch ID 才解密 *.enc</text>
 
       <rect x="480" y="220" width="200" height="80" rx="4" fill="#fff" stroke="#DDE2E7"/>
       <text x="580" y="253" font-size="15" font-weight="600" fill="#12324A">AWS STS</text>
@@ -126,7 +127,7 @@ footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--page-line);fo
       <path d="M860 150 L860 260 L684 260" fill="none" stroke="#D98E1F" stroke-width="2" marker-end="url(#ah)"/><text x="772" y="250">长期 AKSK（只在内存）</text>
       <path d="M480 260 L105 260 L105 154" fill="none" stroke="#D98E1F" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#ah)"/><text x="292" y="250" fill="#8A5A12">临时凭证 ASIA…（缓存 1 小时）</text>
     </g>
-    <text x="20" y="30" font-size="12" fill="#8C959F">STS 失败即报错退出，长期密钥从不交给调用方；增删指纹或换机后密钥失效，需在控制台重新生成 AKSK</text>
+    <text x="20" y="30" font-size="12" fill="#8C959F">磁盘上只有密文 ~/.aws/vault/*.enc；STS 失败即报错退出，长期密钥从不交给调用方；增删指纹或换机后密钥失效，需在控制台重新生成 AKSK</text>
   </svg>
   </div>
 </section>
