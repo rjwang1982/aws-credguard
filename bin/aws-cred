@@ -29,6 +29,8 @@ if out=$(AWS_ACCESS_KEY_ID="$AK" AWS_SECRET_ACCESS_KEY="$SK" AWS_REGION="$r" AWS
   printf '%s' "$out" | /usr/bin/python3 -c 'import json,sys;c=json.load(sys.stdin)["Credentials"];print(json.dumps({"Version":1,"AccessKeyId":c["AccessKeyId"],"SecretAccessKey":c["SecretAccessKey"],"SessionToken":c["SessionToken"],"Expiration":c["Expiration"]}))' > "$tmp"
   chmod 600 "$tmp"; mv "$tmp" "$cf"; cat "$cf"
 else
-  # STS 换取失败（如部分 root 限制）时直接输出长期密钥，不落盘
-  printf '{"Version":1,"AccessKeyId":"%s","SecretAccessKey":"%s"}\n' "$AK" "$SK"; unset AK SK
+  # 失败即关闭：绝不输出长期密钥（root 密钥或无 sts:GetSessionToken 权限时会走到这里）
+  unset AK SK
+  echo "aws-cred: STS GetSessionToken 失败 ($p, region=$r)。不支持 root 密钥；请检查密钥是否有效。" >&2
+  exit 1
 fi

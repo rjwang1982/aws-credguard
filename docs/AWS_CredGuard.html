@@ -64,7 +64,7 @@ footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--page-line);fo
 <header>
   <div class="meta">AWS CredGuard · v1.0 · 2026-11 · 作者：RJ Wang · MIT License</div>
   <h1>AWS CredGuard：本机不存明文 AKSK，<br>每次启用凭证都要本人按指纹</h1>
-  <p class="lead">一台 Mac 上管着几十个 AWS 账号的长期密钥，人和 AI 智能体（Kiro、Quick、MCP）共用。本方案把 AKSK 交给 Mac 的<b>安全芯片（Secure Enclave）</b>加密，解密必须按 <b>Touch ID</b>；交给工具的只有 <b>1 小时有效的 STS 临时凭证</b>；原来的 <code>--profile</code> 用法不变。</p>
+  <p class="lead">一台 Mac 上管着几十个 AWS 账号的长期密钥，人和 AI 智能体（Kiro、Quick、MCP）共用。本方案把 AKSK 交给 Mac 的<b>安全芯片（Secure Enclave）</b>加密，解密必须按 <b>Touch ID</b>；交给工具的只有 <b>1 小时有效的 STS 临时凭证</b>，长期密钥永远不出内存；不支持、也不应存在 root 账号的 Access Key；原来的 <code>--profile</code> 用法不变。</p>
   <div class="stats">
     <div><div class="v">0</div><div class="k">本机明文 AKSK</div></div>
     <div><div class="v">SE</div><div class="k">Secure Enclave 加密存储</div></div>
@@ -128,7 +128,7 @@ footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--page-line);fo
       <text x="578" y="150">③ 调 aws-se 解密 → <tspan font-weight="600" fill="#8A5A12">Touch ID</tspan></text>
       <text x="578" y="178">④ 内存中调用 STS GetSessionToken（按 profile 的 region）</text>
       <text x="578" y="206">⑤ 写缓存（600 权限），输出 JSON 给调用方</text>
-      <text x="578" y="234" fill="#56606B">STS 失败（如 root）时直接输出长期密钥，不落盘</text>
+      <text x="578" y="234" fill="#9A3B2E">STS 换取失败时报错退出，从不输出长期密钥</text>
       <text x="578" y="262" fill="#56606B">清除调用方带入的 AWS_REGION / AWS_PROFILE，避免串区</text>
     </g>
     <!-- return arrow -->
@@ -166,7 +166,7 @@ footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--page-line);fo
     <rect x="810" y="380" width="170" height="150" rx="3" fill="#fff" stroke="#DDE2E7"/>
     <text x="824" y="406" font-size="13" font-weight="600" fill="#12324A">AWS 控制台重建</text>
     <g font-size="12" fill="#56606B">
-      <text x="824" y="432">原始 AKSK 离线备份</text>
+      <text x="824" y="432">失效时 IAM 重新生成</text>
       <text x="824" y="454">唯一的恢复来源</text>
       <text x="824" y="476">重建时用 aws-add 导回</text>
     </g>
@@ -260,7 +260,7 @@ aws-lock</pre>
         <li>恶意包、插件扫描 <code>~/.aws</code></li>
         <li>云盘同步、备份、磁盘被拷走</li>
         <li>智能体在你不知情时启用新的 profile</li>
-        <li>工具在日志或报错里打印出长期 AK</li>
+        <li>工具在日志或报错里打印出长期 AK（工具只拿到临时凭证）</li>
         <li>篡改缓存文件来跳过指纹（缓存只存临时凭证，不再有"已验证"标记文件）</li>
       </ul>
     </div>
@@ -270,7 +270,7 @@ aws-lock</pre>
         <li>按过指纹后 1 小时内，以你身份运行的进程能读取缓存的临时凭证</li>
         <li>智能体被提示词注入后，在已授权窗口内滥用权限</li>
         <li>本人在不清楚原因时按了指纹</li>
-        <li>root 密钥换不了 STS 临时凭证，只能直接输出长期密钥</li>
+        <li>IAM 权限过大：加密不改变权限，管理员 profile 被滥用时损失依旧（见下方治理）</li>
       </ul>
     </div>
   </div>
@@ -283,11 +283,11 @@ aws-lock</pre>
   <table>
     <thead><tr><th>发现</th><th>处理</th><th>优先级</th></tr></thead>
     <tbody>
-      <tr><td>Root 账号的 Access Key</td><td>查最近使用时间后删除，root 只用于控制台并开 MFA</td><td><span class="tag hi">高</span></td></tr>
+      <tr><td>Root 账号的 Access Key</td><td>一律删除（CredGuard 不支持 root 密钥，STS 换取会失败并报错）；root 只用于控制台并开 MFA</td><td><span class="tag hi">高</span></td></tr>
       <tr><td>AdministratorAccess 给了智能体使用的 profile</td><td>为智能体单独建只读用户（如 agent-readonly），管理员 profile 只留给本人</td><td><span class="tag hi">高</span></td></tr>
       <tr><td>名义只读但带 IAMFullAccess</td><td>去掉 IAMFullAccess，防止自我提权</td><td><span class="tag">中</span></td></tr>
       <tr><td>同一 IAM 用户配置了多个 profile 名</td><td>合并为一个，其余改别名</td><td><span class="tag">中</span></td></tr>
-      <tr><td>密钥超过 90 天未轮换</td><td>轮换后 aws-add 重新加密，并同步离线备份</td><td><span class="tag">中</span></td></tr>
+      <tr><td>密钥超过 90 天未轮换</td><td>控制台新建密钥 → aws-rm + aws-add → 停用删除旧密钥</td><td><span class="tag">中</span></td></tr>
     </tbody>
   </table>
   </div>
@@ -301,7 +301,9 @@ aws-lock</pre>
       <thead><tr><th>现象</th><th>处理</th></tr></thead>
       <tbody>
         <tr><td><code>custom-process</code> 报错</td><td><code>aws-lock</code> 后重试；或执行 <code>bash -x ~/.aws/bin/aws-cred &lt;名&gt;</code></td></tr>
-        <tr><td><code>InvalidClientTokenId</code></td><td>检查 <code>env | grep AWS_REGION</code>；用 <code>aws-test</code> 验证</td></tr>
+        <tr><td><code>InvalidClientTokenId</code>（STS 也失败）</td><td>检查 <code>env | grep AWS_REGION</code>；用 <code>aws-test</code> 验证</td></tr>
+        <tr><td>IAM 接口报 <code>InvalidClientTokenId</code>，STS 正常</td><td>临时凭证由未带 MFA 的 GetSessionToken 换取，不能调用 IAM API（密钥本身有效）。权限盘点用控制台 IAM → 凭证报告</td></tr>
+        <tr><td>先弹密码窗口，再弹指纹</td><td><code>aws-se</code> 为 adhoc 签名，重新编译后钥匙串授权失效。用固定证书安装：<code>CREDGUARD_SIGN_ID=&lt;证书&gt; ./install.sh</code>，首次弹窗点“始终允许”</td></tr>
         <tr><td>增删指纹后全部失败</td><td>芯片密钥已失效：重装后到控制台重新生成密钥，再 aws-add</td></tr>
         <tr><td>换了新 Mac</td><td>芯片密钥不能迁移：同上，在新机器上重建</td></tr>
         <tr><td>智能体卡住</td><td>屏幕已锁定或指纹窗口没人处理：解锁屏幕或按指纹</td></tr>
